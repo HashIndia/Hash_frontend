@@ -1,0 +1,311 @@
+import { useState, useMemo, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { Card, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '../components/ui/select';
+import { Badge } from '../components/ui/badge';
+import { Grid, List, Search, SlidersHorizontal } from 'lucide-react';
+import { productsAPI } from '../services/api';
+import ShopPageSkeleton from '../components/ShopPageSkeleton';
+import SEO from '../components/SEO';
+import toast from 'react-hot-toast';
+
+export default function Shop() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedBrand, setSelectedBrand] = useState('all');
+
+  const [priceRange, setPriceRange] = useState('all');
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [viewMode, setViewMode] = useState('grid');
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        const params = {
+          page: pagination.page,
+          limit: 12,
+          search: searchTerm,
+          brand: selectedBrand,
+
+          sort: sortBy.split('-')[0],
+          order: sortBy.split('-')[1] || 'desc',
+        };
+
+        // Handle price range filtering
+        if (priceRange !== 'all') {
+          if (priceRange.startsWith('under-')) {
+            params.minPrice = 0;
+            params.maxPrice = parseInt(priceRange.split('-')[1]);
+          } else if (priceRange.endsWith('-above')) {
+            params.minPrice = parseInt(priceRange.split('-')[0]);
+          } else {
+            const [min, max] = priceRange.split('-');
+            params.minPrice = parseInt(min);
+            params.maxPrice = parseInt(max);
+          }
+        }
+        
+        if (params.brand === 'all') delete params.brand;
+
+        const response = await productsAPI.getProducts(params);
+        setProducts(response.data.products);
+        setPagination({
+          page: response.page,
+          totalPages: response.totalPages,
+          total: response.total,
+        });
+      } catch (err) {
+        setError('Failed to fetch products.');
+        toast.error('Could not load products.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const debounceFetch = setTimeout(() => {
+      fetchProducts();
+    }, 300); // Debounce search input
+
+    return () => clearTimeout(debounceFetch);
+  }, [searchTerm, selectedBrand, priceRange, sortBy, pagination.page]);
+
+  // Filter and sort products - This is now handled by the backend
+  const filteredProducts = products;
+
+  const brands = useMemo(() => {
+    // Direct array of category values to match backend exactly
+    return ['Polo', 'Regular Fit', 'Oversized Tees', 'Vest', 'Hoodie', 'Varsity', 'Croptop'];
+  }, []);
+
+  if (loading && products.length === 0) {
+    return <ShopPageSkeleton />;
+  }
+
+  return (
+    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+      <SEO 
+        title="Shop Premium Fashion - HASH India | Latest Collection"
+        description="Shop the latest collection at HASH India. Discover premium t-shirts, jeans, dresses, and accessories. Free shipping, easy returns, and best quality guaranteed. Find your style today!"
+        keywords="shop fashion India, buy clothes online, HASH India shop, t-shirts online, jeans online, dresses online, accessories, fashion shopping, trendy clothes India, online clothing store"
+        url="https://hashindia.com/shop"
+        canonicalUrl="https://hashindia.com/shop"
+        schema={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "name": "HASH India Shop",
+          "description": "Shop premium fashion collection at HASH India",
+          "url": "https://hashindia.com/shop",
+          "mainEntity": {
+            "@type": "ItemList",
+            "name": "Fashion Products",
+            "numberOfItems": products.length,
+            "itemListElement": products.slice(0, 10).map((product, index) => ({
+              "@type": "Product",
+              "position": index + 1,
+              "name": product.name,
+              "description": product.description,
+              "image": product.images?.[0]?.url || product.images?.[0],
+              "offers": {
+                "@type": "Offer",
+                "price": product.price,
+                "priceCurrency": "INR",
+                "availability": "https://schema.org/InStock"
+              }
+            }))
+          }
+        }}
+      />
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-black via-neutral-900 to-neutral-800 text-white py-16 relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.1)_0%,transparent_50%)] opacity-50"></div>
+        
+        <div className="container mx-auto px-6 text-center relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 font-space">
+              <span className="text-white/90">#Shop</span> Collection
+            </h1>
+            <p className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto px-4">
+              Discover our complete range of premium fashion pieces
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Search & Filters Section */}
+      <section className="bg-white border-b border-neutral-200 md:sticky md:top-16 md:z-40 md:backdrop-blur-sm shadow-lg rounded-b-3xl">
+        <div className="container mx-auto px-4 md:px-6 py-4 md:py-6">
+          <div className="flex flex-col gap-4">
+            {/* Search */}
+            <div className="relative w-full">
+              <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 text-black w-4 h-4 md:w-5 md:h-5" />
+              <Input
+                type="text"
+                placeholder="Search products..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 md:pl-12 pr-4 py-2 md:py-3 text-base md:text-lg bg-white border-neutral-300 focus:ring-hash-purple shadow-sm"
+              />
+            </div>
+            
+            {/* Quick Filters */}
+            <div className="flex flex-wrap gap-2 md:gap-3 relative z-50">
+              <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+              <SelectTrigger className="w-full sm:w-40 bg-white border-neutral-300 text-neutral-800 text-sm md:text-base shadow-sm">
+                  <SelectValue placeholder="Brand" />
+                </SelectTrigger>
+              <SelectContent className="bg-white border border-neutral-200 shadow-lg z-50">
+                  <SelectItem value="all" className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20">All Brands</SelectItem>
+                  {brands.map((brand) => (
+                    <SelectItem 
+                      key={brand} 
+                      value={brand} 
+                      className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20"
+                    >
+                      {brand}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+
+              
+              <Select value={priceRange} onValueChange={setPriceRange}>
+              <SelectTrigger className="w-full sm:w-40 bg-white border-neutral-300 text-neutral-800 text-sm md:text-base shadow-sm">
+                  <SelectValue placeholder="Price Range" />
+                </SelectTrigger>
+              <SelectContent className="bg-white border border-neutral-200 shadow-lg z-50">
+                  <SelectItem value="all" className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20">All Prices</SelectItem>
+                  <SelectItem value="under-500" className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20">Under ₹500</SelectItem>
+                  <SelectItem value="500-1000" className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20">₹500 - ₹1,000</SelectItem>
+                  <SelectItem value="1000-2500" className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20">₹1,000 - ₹2,500</SelectItem>
+                  <SelectItem value="2500-5000" className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20">₹2,500 - ₹5,000</SelectItem>
+                  <SelectItem value="5000-above" className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20">₹5,000 & Above</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-full sm:w-40 bg-white border-neutral-300 text-neutral-800 text-sm md:text-base shadow-sm">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+              <SelectContent className="bg-white border border-neutral-200 shadow-lg z-50">
+                  <SelectItem value="createdAt-desc" className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20">Newest</SelectItem>
+                  <SelectItem value="price-asc" className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20">Price: Low to High</SelectItem>
+                  <SelectItem value="price-desc" className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20">Price: High to Low</SelectItem>
+                  <SelectItem value="name-asc" className="text-neutral-800 hover:bg-hash-purple/10 focus:bg-hash-purple/20">Name: A to Z</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <div className="flex border border-black rounded-lg overflow-hidden">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('grid')}
+                  className="rounded-none border-r border-black px-2 md:px-3"
+                >
+                  <Grid className="w-3 h-3 md:w-4 md:h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="rounded-none px-2 md:px-3"
+                >
+                  <List className="w-3 h-3 md:w-4 md:h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Products Grid */}
+      <section className="py-8 md:py-12 bg-gradient-to-b from-white to-neutral-50 border-b border-neutral-100 shadow-sm rounded-3xl my-12 mx-auto max-w-7xl">
+        <div className="container mx-auto px-4 md:px-6">
+          {/* Results Summary */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 md:mb-8 gap-2">
+            <div className="text-sm md:text-base text-black">
+              Showing {filteredProducts.length} of {pagination.total} products
+              {searchTerm && (
+                <span className="ml-2 block sm:inline">
+                  for "<span className="font-medium text-black">{searchTerm}</span>"
+                </span>
+              )}
+            </div>
+          </div>
+
+          {error && (
+            <div className="text-center py-12">
+              <p className="text-destructive">{error}</p>
+            </div>
+          )}
+
+          {filteredProducts.length === 0 && !loading ? (
+            <div className="text-center py-12">
+              <p className="text-neutral-600">No products found matching your criteria.</p>
+            </div>
+          ) : (
+            <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-1'}`}>
+              {filteredProducts.map((product, index) => (
+                <motion.div
+                  key={product._id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <Link to={`/product/${product._id}`}>
+                    <Card className="group hover:shadow-xl transition-all duration-300 cursor-pointer border-neutral-100 hover:border-black/10 bg-white h-full rounded-2xl shadow-md">
+                      <CardContent className="p-0">
+                        <div className="aspect-square overflow-hidden rounded-t-2xl relative bg-neutral-100">
+                          <img
+                            src={product.images?.[0]?.url || product.images?.[0] || '/placeholder-product.jpg'}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            onError={(e) => {
+                              e.target.src = '/placeholder-product.jpg';
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300" />
+                        </div>
+                        <div className="p-4">
+                          <h3 className="font-semibold text-lg mb-1 text-neutral-900 group-hover:text-black transition-colors duration-200">
+                            {product.name}
+                            <Badge variant="secondary" className="ml-2 inline-flex bg-neutral-100 text-neutral-800 border-neutral-200">
+                              {product.brand}
+                            </Badge>
+                          </h3>
+                          <p className="text-neutral-600 text-sm mb-3 line-clamp-2">{product.description}</p>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xl font-bold text-black">₹{product.price}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
